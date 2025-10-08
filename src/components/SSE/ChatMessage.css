@@ -1,0 +1,92 @@
+/* ChatMessage.css */
+
+/* ----------------------------------- */
+/* 1. 訊息容器 (決定左右對齊) */
+/* ----------------------------------- */
+.message-container {
+  /* 讓氣泡佔據它需要的空間 */
+  display: flex;
+  /* 增加上下間距 */
+  margin: 10px 0;
+  /* 限制最大寬度，避免太寬 */
+  /* max-width: 80%; */
+}
+
+/* 右方 - 提問者的訊息 (靠右對齊) */
+.message-question {
+  /* 讓整個容器靠右推 */
+  margin-left: auto;
+  /* 讓內容物（氣泡）靠右對齊 (在這個佈局中可能不是絕對必要，但習慣性加上) */
+  justify-content: flex-end;
+}
+
+/* 左方 - 回答者的訊息 (靠左對齊) */
+.message-answer {
+  /* 讓整個容器靠左推 */
+  margin-right: auto;
+  justify-content: flex-start;
+}
+
+/* ----------------------------------- */
+/* 2. 訊息氣泡 (決定樣式) */
+/* ----------------------------------- */
+.message-bubble {
+  padding: 10px 15px;
+  border-radius: 18px;
+  /* 確保 Markdown 內容的文字可以換行 */
+  word-wrap: break-word;
+  /* 基礎字體大小 */
+  font-size: 16px;
+  /* 讓氣泡看起來不那麼突兀 */
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+/* 右方 - 提問者的氣泡樣式 (藍色/深色背景) */
+.message-question .message-bubble {
+  background-color: #007bff; /* 醒目的藍色 */
+  color: white; /* 白色文字 */
+  border-bottom-right-radius: 4px; /* 讓角落看起來像箭頭 */
+}
+
+/* 左方 - 回答者的氣泡樣式 (淺灰色/中性背景) */
+.message-answer .message-bubble {
+  background-color: #e9ecef; /* 淺灰色 */
+  color: #212529; /* 深色文字 */
+  border-bottom-left-radius: 4px; /* 讓角落看起來像箭頭 */
+}
+
+/* ----------------------------------- */
+/* 3. Markdown 樣式修正 */
+/* ----------------------------------- */
+/* 由於 ReactMarkdown 會產生標籤，需要確保它們在氣泡內顯示良好 */
+
+/* 移除氣泡內段落的預設外邊距，避免上下間距過大 */
+.message-bubble p:last-child {
+  margin-bottom: 0;
+}
+.message-bubble p:first-child {
+  margin-top: 0;
+}
+
+/* 讓程式碼區塊在氣泡內能有背景色 */
+.message-bubble pre {
+  background-color: rgba(0, 0, 0, 0.1); /* 淺色背景 */
+  padding: 8px;
+  border-radius: 4px;
+  overflow-x: auto; /* 支援橫向捲動 */
+}
+
+/* 讓行內程式碼在藍色氣泡內也能顯示 */
+.message-question code {
+  background-color: rgba(255, 255, 255, 0.2); /* 白色透明背景 */
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+}
+/* 讓行內程式碼在淺色氣泡內也能顯示 */
+.message-answer code {
+  background-color: rgba(0, 0, 0, 0.05); /* 黑色透明背景 */
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+}

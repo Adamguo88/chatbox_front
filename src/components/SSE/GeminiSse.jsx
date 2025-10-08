@@ -1,30 +1,76 @@
 // src/App.js (React 元件部分)
 
-import React, { useState } from "react";
-// import ReactMarkdown from "react-markdown";
-// import remarkGfm from "remark-gfm";
-import MDEditor from "@uiw/react-md-editor";
-import { Button, Col, Input, Row, Space } from "antd";
+import React, { useEffect, useRef, useState } from "react";
+import { Button, Col, Input, Row, Select, Space } from "antd";
+import dayjs from "dayjs";
+import ChatMessage from "./ChatMessage";
+import axios from "axios";
 
 const API_URL = "http://localhost:3000/sse/stream";
 
 export default function GeminiSSe() {
+  const bottomRef = useRef(null);
+  const [isFirst, setIsFirst] = useState(true);
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
   const [status, setStatus] = useState("閒置");
   const [isLoading, setIsLoading] = useState(false);
+  const [isHistory, setIsHistory] = useState([]);
+  const [isModel, setIsModel] = useState([]);
   // --- 📢 新增：定義一個會話 ID ---
-  const [sessionId] = useState(`user-${Date.now()}`); // 使用 Date.now() 簡單模擬一個唯一 ID
+  const [isOptions, setIsOptions] = useState([]);
+  const [sessionId, setSessionId] = useState(`user-${Date.now()}`); // 使用 Date.now() 簡單模擬一個唯一 ID
+  // "user-1759808269118" 台積電
+  // "user-1759823761041" PCB
+  // "user-1759824515107" 測試對話1
 
   // --- 📢 新增：顧問選擇狀態 ---
   const [consultantId, setConsultantId] = useState("financial_advisor");
 
-  // 定義顧問選項 (與 consultantConfig.js 中的 ID 保持一致)
-  const advisorOptions = [
-    { id: "financial_advisor", name: "財務顧問" },
-    { id: "insurance_advisor", name: "保單顧問" },
-    { id: "jpmorgan_analyst", name: "摩根大通分析師 (台美股)" }, // <--- 新增
-  ];
+  // 切換不同聊天室
+  const handleChangeChatBox = async (v) => {
+    setSessionId(v);
+    // 假設您的 Express 後端運行在 3000 埠
+    const historyApiUrl = `http://localhost:3000/api/history`;
+
+    try {
+      const response = await fetch(historyApiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: v }),
+      });
+
+      if (response.status === 444) {
+        console.log("新的對話，沒有歷史紀錄。");
+        return [];
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // 返回格式化後的歷史訊息陣列，您可以用它來顯示在聊天介面上
+      console.log(data.history);
+      setIsHistory(data.history);
+
+      return data.history;
+    } catch (error) {
+      console.error("獲取歷史紀錄失敗:", error);
+      return [];
+    }
+  };
+
+  // 呼叫這個空元素的 scrollIntoView() 方法
+  const scrollToBottom = () => {
+    const scrollHeight = bottomRef.current.scrollHeight;
+    const offsetHeight = bottomRef.current.offsetHeight;
+    bottomRef.current?.scrollTo({
+      top: scrollHeight - offsetHeight,
+      behavior: "smooth",
+    });
+  };
 
   // 處理按鈕點擊和串流邏輯
   const handleGenerate = async () => {
@@ -54,6 +100,13 @@ export default function GeminiSSe() {
       if (!fetchResponse.ok) {
         throw new Error(`HTTP 錯誤! 狀態碼: ${fetchResponse.status}`);
       }
+      // SSE響應成功 清除input數據
+      setIsHistory((initRecord) => [
+        ...initRecord,
+        { role: "user", content: prompt, timestamp: dayjs().format("YYYY-MM-DD HH:mm:ss") },
+        { role: "modal", content: "" },
+      ]);
+      setPrompt("");
 
       // 2. 獲取回應串流
       const reader = fetchResponse.body
@@ -82,10 +135,12 @@ export default function GeminiSSe() {
               if (data.type === "text") {
                 // 即時更新文字
                 currentResponseText += data.content;
+
                 setResponse(currentResponseText);
-              } else if (data.type === "end") {
+              } else if (data.type === "finial") {
                 setStatus("🟢 串流完成");
                 reader.cancel(); // 結束串流
+                setResponse(currentResponseText + "串流完成");
                 return;
               } else if (data.type === "error") {
                 setStatus("🔴 串流錯誤");
@@ -109,41 +164,98 @@ export default function GeminiSSe() {
     }
   };
 
+  useEffect(() => {
+    if (response.length >= 1) {
+      if (response.endsWith("串流完成")) {
+        setResponse("");
+      } else {
+        setIsHistory((initRecord) => {
+          return initRecord.map((item, index) => {
+            const length = initRecord.length - 1;
+            if (index === length && length > 0)
+              return { ...item, content: response, timestamp: !item?.timestamp ? dayjs().format("YYYY-MM-DD HH:mm:ss") : item.timestamp };
+            return item;
+          });
+        });
+      }
+    }
+  }, [response]);
+
+  useEffect(() => {
+    if ((process.env.NODE_ENV === "development" && isFirst) || process.env.NODE_ENV === "production") {
+      setIsFirst(false);
+    }
+    if (!isFirst) {
+      const fetchModal = async () => {
+        try {
+          // R (Read): 讀取所有顧問配置
+          const response = await axios.get("http://localhost:3000/api/config");
+          console.log();
+          const isModelData = response?.data?.map((item) => ({ label: item.name, value: item.consultantId }));
+
+          setIsModel(isModelData);
+        } catch (error) {
+          console.error("Fetch error:", error);
+        }
+      };
+      const fetchAllSessionId = async () => {
+        const historyApiUrl = `http://localhost:3000/api/records/all`;
+
+        try {
+          // const sessionId = "user-1759808269118";
+          const response = await fetch(historyApiUrl);
+
+          if (!response.ok) {
+            throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          // 返回格式化後的歷史訊息陣列，您可以用它來顯示在聊天介面上
+          console.log(data);
+          setIsOptions(data?.records);
+        } catch (error) {
+          console.error("獲取歷史紀錄失敗:", error);
+          return [];
+        }
+      };
+      fetchAllSessionId();
+      fetchModal();
+    }
+  }, [isFirst]);
+
   // 元件的渲染部分
   return (
     <div style={{ fontFamily: "Arial", margin: "auto" }}>
-      <span style={{ fontSize: "32px", fontWeight: "bold" }}>串流聊天 Demo (POST + SSE)</span>
-      <div style={{ marginBottom: "15px" }}>
-        <label>
-          選擇顧問:
-          <select
-            value={consultantId}
-            onChange={(e) => {
-              setConsultantId(e.target.value);
-              setResponse(""); // 切換顧問時清空對話紀錄
-              // 實際應用中，您可能需要重設 sessionId 或發送一個重設指令給後端
-            }}
-            disabled={isLoading}
-            style={{ marginLeft: "10px", padding: "5px" }}
-          >
-            {advisorOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <p>
-        狀態: <b style={{ color: isLoading ? "blue" : status.includes("🟢") ? "green" : "red" }}>{status}</b>
-      </p>
       <Row>
-        <Col span={24} style={{ maxHeight: 750 }}>
-          <MDEditor
-            value={response}
-            preview="preview" // 只顯示預覽
-            height={750}
+        <Col span={24} style={{ display: "flex" }}>
+          <Select options={isModel} value={consultantId} onChange={(v) => setConsultantId(v)} style={{ minWidth: 250, display: "flex" }} />
+          <Select
+            options={isOptions}
+            value={sessionId}
+            onChange={(v) => handleChangeChatBox(v)}
+            style={{ minWidth: 250, display: "flex" }}
           />
+          <Button onClick={scrollToBottom}>測試</Button>
+        </Col>
+        <Col span={24}>
+          <p>
+            狀態: <b style={{ color: isLoading ? "blue" : status.includes("🟢") ? "green" : "red" }}>{status}</b>
+          </p>
+        </Col>
+
+        <Col
+          ref={bottomRef}
+          span={24}
+          style={{ minHeight: 750, maxHeight: 750, padding: "10px", overflow: "auto", border: "1px solid gray", borderRadius: "10px" }}
+        >
+          {isHistory?.map((item, index) => {
+            return (
+              <React.Fragment key={item?.timestamp + "_" + index}>
+                <ChatMessage role={item.role} content={item.content} />
+              </React.Fragment>
+            );
+          })}
         </Col>
         <Col span={24}>
           <Space.Compact block>
