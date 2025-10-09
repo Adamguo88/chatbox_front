@@ -1,7 +1,7 @@
 // src/App.js (React 元件部分)
 
 import React, { useEffect, useRef, useState } from "react";
-import { Button, Col, Input, Row, Select, Space } from "antd";
+import { Button, Card, Col, Input, Menu, Row, Space } from "antd";
 import dayjs from "dayjs";
 import ChatMessage from "./ChatMessage";
 import axios from "axios";
@@ -16,16 +16,46 @@ export default function GeminiSSe() {
   const [status, setStatus] = useState("閒置");
   const [isLoading, setIsLoading] = useState(false);
   const [isHistory, setIsHistory] = useState([]);
-  const [isModel, setIsModel] = useState([]);
+
+  const [isModel, setIsModel] = useState({ init: [], select: [] });
   // --- 📢 新增：定義一個會話 ID ---
   const [isOptions, setIsOptions] = useState([]);
   const [sessionId, setSessionId] = useState(`user-${Date.now()}`); // 使用 Date.now() 簡單模擬一個唯一 ID
-  // "user-1759808269118" 台積電
-  // "user-1759823761041" PCB
-  // "user-1759824515107" 測試對話1
-
   // --- 📢 新增：顧問選擇狀態 ---
-  const [consultantId, setConsultantId] = useState("financial_advisor");
+  const [consultantId, setConsultantId] = useState("");
+
+  // 切換model
+  const handleChangeModel = async (v) => {
+    setConsultantId(v);
+    const historyApiUrl = process.env.REACT_APP_URL + `/api/records/all`;
+
+    try {
+      // const sessionId = "user-1759808269118";
+      const response = await fetch(historyApiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: v }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // 返回格式化後的歷史訊息陣列，您可以用它來顯示在聊天介面上
+      console.log(data);
+      setIsOptions(data?.records);
+    } catch (error) {
+      console.error("獲取歷史紀錄失敗:", error);
+      return [];
+    }
+  };
+  // 清空model
+  const handleCancelModel = () => {
+    setConsultantId("");
+    setIsHistory([]);
+  };
 
   // 切換不同聊天室
   const handleChangeChatBox = async (v) => {
@@ -169,6 +199,7 @@ export default function GeminiSSe() {
       if (response.endsWith("串流完成")) {
         setResponse("");
       } else {
+        scrollToBottom();
         setIsHistory((initRecord) => {
           return initRecord.map((item, index) => {
             const length = initRecord.length - 1;
@@ -190,36 +221,12 @@ export default function GeminiSSe() {
         try {
           // R (Read): 讀取所有顧問配置
           const response = await axios.get(process.env.REACT_APP_URL + "/api/config");
-          console.log();
           const isModelData = response?.data?.map((item) => ({ label: item.name, value: item.consultantId }));
-
-          setIsModel(isModelData);
+          setIsModel({ init: response?.data, select: isModelData });
         } catch (error) {
           console.error("Fetch error:", error);
         }
       };
-      const fetchAllSessionId = async () => {
-        const historyApiUrl = process.env.REACT_APP_URL + `/api/records/all`;
-
-        try {
-          // const sessionId = "user-1759808269118";
-          const response = await fetch(historyApiUrl);
-
-          if (!response.ok) {
-            throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
-          }
-
-          const data = await response.json();
-
-          // 返回格式化後的歷史訊息陣列，您可以用它來顯示在聊天介面上
-          console.log(data);
-          setIsOptions(data?.records);
-        } catch (error) {
-          console.error("獲取歷史紀錄失敗:", error);
-          return [];
-        }
-      };
-      fetchAllSessionId();
       fetchModal();
     }
   }, [isFirst]);
@@ -227,52 +234,82 @@ export default function GeminiSSe() {
   // 元件的渲染部分
   return (
     <div style={{ fontFamily: "Arial", margin: "auto" }}>
-      <Row>
-        <Col span={24} style={{ display: "flex" }}>
-          <Select options={isModel} value={consultantId} onChange={(v) => setConsultantId(v)} style={{ minWidth: 250, display: "flex" }} />
-          <Select
-            options={isOptions}
-            value={sessionId}
-            onChange={(v) => handleChangeChatBox(v)}
-            style={{ minWidth: 250, display: "flex" }}
-          />
-          <Button onClick={scrollToBottom}>測試</Button>
-        </Col>
-        <Col span={24}>
-          <p>
-            狀態: <b style={{ color: isLoading ? "blue" : status.includes("🟢") ? "green" : "red" }}>{status}</b>
-          </p>
-        </Col>
-
-        <Col
-          ref={bottomRef}
-          span={24}
-          style={{ minHeight: 750, maxHeight: 750, padding: "10px", overflow: "auto", border: "1px solid gray", borderRadius: "10px" }}
-        >
-          {isHistory?.map((item, index) => {
+      {/* <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <span style={{ fontSize: "28px", fontWeight: "bold" }}>
+          當前模型：{isModel?.init?.find((item) => item.consultantId === consultantId)?.name}
+        </span>
+      </div> */}
+      {!consultantId ? (
+        <Row gutter={[12, 12]}>
+          {isModel.init?.map((item) => {
             return (
-              <React.Fragment key={item?.timestamp + "_" + index}>
-                <ChatMessage role={item.role} content={item.content} />
-              </React.Fragment>
+              <Col span={8} key={item.consultantId} style={{ height: "100%" }}>
+                <Card title={item.name + "模型"} variant="borderless">
+                  <p>{item?.topicScope?.join("、")}</p>
+                  <Button block type="primary" onClick={() => handleChangeModel(item.consultantId)}>
+                    使用模型
+                  </Button>
+                </Card>
+              </Col>
             );
           })}
-        </Col>
-        <Col span={24}>
-          <Space.Compact block>
-            <Input.TextArea
-              allowClear
-              autoSize={{ minRows: 5, maxRows: 5 }}
-              placeholder="請輸入您想問 AI 的問題..."
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              disabled={isLoading}
+        </Row>
+      ) : (
+        <Row gutter={[0, 12]} style={{ overflow: "hidden" }}>
+          <Col flex="0 1 250px" style={{ paddingRight: "6px" }}>
+            <Menu
+              style={{ minHeight: "calc(100vh - 62px)" }}
+              mode="inline"
+              theme="dark"
+              items={[
+                {
+                  key: "back",
+                  label: (
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span>
+                        狀態: <b style={{ color: isLoading ? "blue" : status.includes("🟢") ? "green" : "red" }}>{status}</b>
+                      </span>
+                      <Button type="primary" onClick={handleCancelModel}>
+                        返回
+                      </Button>
+                    </div>
+                  ),
+                },
+                ...isOptions,
+              ]}
+              onClick={(item) => (item.key !== "back" ? handleChangeChatBox(item.key) : null)}
             />
-            <Button type="primary" onClick={handleGenerate} disabled={isLoading} style={{ height: "auto" }}>
-              {isLoading ? "AI 正在思考..." : "點擊開始生成"}
-            </Button>
-          </Space.Compact>
-        </Col>
-      </Row>
+          </Col>
+          <Col flex="auto" style={{ maxWidth: "calc(100vw - 270px)", maxHeight: "calc(100vh - 62px)", overflow: "auto" }}>
+            <Row gutter={[12, 12]} style={{ width: "100%" }}>
+              <Col ref={bottomRef} span={24}>
+                {isHistory?.map((item, index) => {
+                  return (
+                    <React.Fragment key={item?.timestamp + "_" + index}>
+                      <ChatMessage role={item.role} content={item.content} />
+                    </React.Fragment>
+                  );
+                })}
+              </Col>
+              <Col span={24}>
+                <Space.Compact block>
+                  <Input.TextArea
+                    allowClear
+                    autoSize={{ minRows: 5, maxRows: 5 }}
+                    placeholder="請輸入您想問 AI 的問題..."
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    disabled={isLoading}
+                  />
+                  <Button type="primary" onClick={handleGenerate} disabled={isLoading} style={{ height: "auto" }}>
+                    {isLoading ? "AI 正在思考..." : "點擊開始生成"}
+                  </Button>
+                </Space.Compact>
+              </Col>
+            </Row>
+          </Col>
+        </Row>
+      )}
     </div>
   );
 }

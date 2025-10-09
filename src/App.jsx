@@ -10,7 +10,7 @@ export default function App() {
     console.log(key);
   };
   return (
-    <Row style={{ padding: "0 10px" }}>
+    <Row>
       <Col span={24}>
         <Tabs
           defaultActiveKey="1"
@@ -18,7 +18,7 @@ export default function App() {
             { key: "1", label: "模型管控", children: <ConsultantManager /> },
             // { key: "2", label: "測試一", children: <ClientData /> },
             // { key: "3", label: "SSE測試", children: <ClientSse /> },
-            { key: "4", label: "Gemini模擬", children: <GeminiSse /> },
+            { key: "4", label: "模型選用", children: <GeminiSse /> },
           ]}
           onChange={onChange}
         />
