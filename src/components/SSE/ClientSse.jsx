@@ -21,7 +21,7 @@ export default function ClientSse() {
       }
       setStatus("連線中...");
 
-      const eventSource = new EventSource("http://localhost:3000/sse/stream");
+      const eventSource = new EventSource(process.env.REACT_APP_URL + "/sse/stream");
       setIsEventSource(eventSource);
     },
     handleCloseEventSource: () => {

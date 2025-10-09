@@ -5,7 +5,7 @@ import { Table, Button, Modal, Form, Input, Switch, Tag, message } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:3000/api/config";
+const API_BASE_URL = process.env.REACT_APP_URL + "/api/config";
 
 // 模型管理主元件
 export default function ConsultantManager() {

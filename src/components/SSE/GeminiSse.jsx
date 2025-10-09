@@ -6,7 +6,7 @@ import dayjs from "dayjs";
 import ChatMessage from "./ChatMessage";
 import axios from "axios";
 
-const API_URL = "http://localhost:3000/sse/stream";
+const API_URL = process.env.REACT_APP_URL + "/sse/stream";
 
 export default function GeminiSSe() {
   const bottomRef = useRef(null);
@@ -31,7 +31,7 @@ export default function GeminiSSe() {
   const handleChangeChatBox = async (v) => {
     setSessionId(v);
     // 假設您的 Express 後端運行在 3000 埠
-    const historyApiUrl = `http://localhost:3000/api/history`;
+    const historyApiUrl = process.env.REACT_APP_URL + `/api/history`;
 
     try {
       const response = await fetch(historyApiUrl, {
@@ -189,7 +189,7 @@ export default function GeminiSSe() {
       const fetchModal = async () => {
         try {
           // R (Read): 讀取所有顧問配置
-          const response = await axios.get("http://localhost:3000/api/config");
+          const response = await axios.get(process.env.REACT_APP_URL + "/api/config");
           console.log();
           const isModelData = response?.data?.map((item) => ({ label: item.name, value: item.consultantId }));
 
@@ -199,7 +199,7 @@ export default function GeminiSSe() {
         }
       };
       const fetchAllSessionId = async () => {
-        const historyApiUrl = `http://localhost:3000/api/records/all`;
+        const historyApiUrl = process.env.REACT_APP_URL + `/api/records/all`;
 
         try {
           // const sessionId = "user-1759808269118";

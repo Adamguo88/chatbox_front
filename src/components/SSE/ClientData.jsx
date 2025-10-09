@@ -3,7 +3,7 @@ import { Button, Col, Row } from "antd";
 export default function ClientData() {
   const fetchHistory = async () => {
     // 假設您的 Express 後端運行在 3000 埠
-    const historyApiUrl = `http://localhost:3000/api/history`;
+    const historyApiUrl = process.env.REACT_APP_URL + `/api/history`;
 
     try {
       const sessionId = "user-1759808269118";
